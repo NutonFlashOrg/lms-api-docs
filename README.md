@@ -59,14 +59,45 @@ ghcr.io/nutonflashorg/lms_tg_app:staging
    В `.env.local` уже будут значения по умолчанию:
 
    ```dotenv
-   HOST=0.0.0.0
-   PORT=3000
-
-   DATABASE_URL=mysql://root:root@db:3306/lms_tg_app
+   # Environment
    NODE_ENV=development
+   PORT=3000
+   HOST=0.0.0.0
 
+   # Database
+   DATABASE_URL=mysql://root:root@db:3306/lms_tg_app
+
+   # Redis
+   REDIS_HOST=redis
+   REDIS_PORT=6379
+   REDIS_PASSWORD=
+   REDIS_DB=0
+
+   # JWT Configuration (Required)
+   # Generate a secure random string at least 32 characters long
+   JWT_ACCESS_SECRET=2f1c4a8e9d0b7c6e5f3a2d1c9b8e7a6d5c4b3a29181726354433221100ffeedd
+   JWT_ACCESS_EXPIRES_IN=7d
+   JWT_REFRESH_EXPIRES_IN=30d
+
+   # Telegram
    TELEGRAM_BOT_TOKEN=8125124336:AAExd_lHKu4BBo7v6iPsbO7kV8qM1wHknj4
-   JWT_SECRET=2f1c4a8e9d0b7c6e5f3a2d1c9b8e7a6d5c4b3a29181726354433221100ffeedd
+   TELEGRAM_WEBHOOK_URL=http://localhost:3000
+
+   # MinIO/S3 Storage
+   MINIO_ENDPOINT=minio
+   MINIO_PORT=9000
+   MINIO_ACCESS_KEY=minioadmin
+   MINIO_SECRET_KEY=minioadmin
+   MINIO_BUCKET=lms-storage
+   MINIO_USE_SSL=false
+
+   # Rate Limiting
+   RATE_LIMIT_MAX=100
+   RATE_LIMIT_WINDOW=1 minute
+
+   # CORS
+   CORS_ORIGIN=*
+   CORS_CREDENTIALS=true
    ```
 
    > ⚠️ Обрати внимание: в `DATABASE_URL` хост должен быть `db` — так контейнер backend свяжется с контейнером базы из `docker-compose`.
@@ -89,6 +120,38 @@ ghcr.io/nutonflashorg/lms_tg_app:staging
 👉 http://localhost:3000/docs
 
 Отсюда можно изучить и протестировать все эндпоинты.
+
+---
+
+## 🔑 Тестовая авторизация через initData
+
+Чтобы проверять доступы в Swagger под разными пользователями, можно сгенерировать тестовую строку `initData`:
+
+1. Добавьте вручную пользователя в базу данных (таблица `users`) с нужным `username`.
+
+2. Используйте вспомогательный скрипт для генерации `initData`.  
+   В проекте есть файл `scripts/mockInitData.js`.
+
+   Пример запуска:
+
+   ```bash
+   node scripts/mockInitData.js <BOT_TOKEN> <TG_ID> <USERNAME>
+   ```
+
+   Например:
+
+   ```bash
+   node scripts/mockInitData.js 8125124336:AAExd_lHKu4BBo7v6iPsbO7kV8qM1wHknj4 123456 adminuser
+   ```
+
+   На выходе вы получите строку вида:
+
+   ```
+   user=%7B%22id%22%3A123456%2C%22username%22%3A%22adminuser%22%7D&auth_date=1712345678&hash=abcdef123456...
+   ```
+
+3. Скопируйте эту строку `initData` и используйте её для авторизации в Swagger.  
+   В Swagger введите её в `/v1/auth/telegram` в поле `initData`, чтобы войти от имени созданного пользователя.
 
 ---
 
