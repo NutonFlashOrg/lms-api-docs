@@ -80,7 +80,7 @@ services:
     environment:
       TZ: Asia/Seoul
       DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-root}@db:3306/${MYSQL_DATABASE:-lms_tg_app}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_HOST: redis
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"
