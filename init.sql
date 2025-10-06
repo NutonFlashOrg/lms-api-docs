@@ -40,7 +40,8 @@ CREATE TABLE `skills` (
   `name` varchar(191) NOT NULL,
   `code` varchar(191) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `skills_code_key` (`code`)
+  UNIQUE KEY `skills_code_key` (`code`),
+  KEY `skills_name_id_idx` (`name`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -302,6 +303,26 @@ CREATE TABLE `user_skill_summaries` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- lms_tg_app.zoom_credentials definition
+
+CREATE TABLE `zoom_credentials` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `adminUserId` int(11) NOT NULL,
+  `accountId` varchar(191) DEFAULT NULL,
+  `tokenType` varchar(191) DEFAULT NULL,
+  `scope` varchar(191) DEFAULT NULL,
+  `accessTokenEnc` varchar(191) NOT NULL,
+  `refreshTokenEnc` varchar(191) NOT NULL,
+  `expiresAt` datetime(3) NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  `updatedAt` datetime(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `zoom_credentials_adminUserId_key` (`adminUserId`),
+  KEY `zoom_credentials_adminUserId_idx` (`adminUserId`),
+  CONSTRAINT `zoom_credentials_adminUserId_fkey` FOREIGN KEY (`adminUserId`) REFERENCES `users` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- lms_tg_app.cases definition
 
 CREATE TABLE `cases` (
@@ -364,6 +385,9 @@ CREATE TABLE `practices` (
   `scenarioVersion` int(11) NOT NULL DEFAULT 1,
   `recordingExpiresAt` datetime(3) DEFAULT NULL,
   `recordingObjectId` int(11) DEFAULT NULL,
+  `evaluationFinalizedAt` datetime(3) DEFAULT NULL,
+  `evaluationState` enum('NONE','OPEN','FINAL') NOT NULL DEFAULT 'NONE',
+  `finishedAt` datetime(3) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `practices_autoCancelAt_idx` (`autoCancelAt`),
   KEY `practices_scenarioId_caseId_idx` (`scenarioId`,`caseId`),
@@ -586,6 +610,19 @@ CREATE TABLE `practice_skills` (
   KEY `practice_skills_skillId_idx` (`skillId`),
   CONSTRAINT `practice_skills_practiceId_fkey` FOREIGN KEY (`practiceId`) REFERENCES `practices` (`id`) ON UPDATE CASCADE,
   CONSTRAINT `practice_skills_skillId_fkey` FOREIGN KEY (`skillId`) REFERENCES `skills` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- lms_tg_app.practice_zoom definition
+
+CREATE TABLE `practice_zoom` (
+  `practiceId` int(11) NOT NULL,
+  `meetingId` varchar(191) NOT NULL,
+  `joinUrl` varchar(191) NOT NULL,
+  `startUrl` varchar(191) NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  PRIMARY KEY (`practiceId`),
+  CONSTRAINT `practice_zoom_practiceId_fkey` FOREIGN KEY (`practiceId`) REFERENCES `practices` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
