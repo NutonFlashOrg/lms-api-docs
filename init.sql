@@ -4,10 +4,10 @@ CREATE TABLE `courses` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(191) NOT NULL,
   `shortDesc` varchar(191) DEFAULT NULL,
+  `isIntro` tinyint(1) NOT NULL DEFAULT 0,
   `accessScope` enum('ALL','CLIENTS_LIST') NOT NULL DEFAULT 'ALL',
   `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   `updatedAt` datetime(3) NOT NULL,
-  `isIntro` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `courses_title_key` (`title`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -26,9 +26,11 @@ CREATE TABLE `quizzes` (
 
 CREATE TABLE `scales` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `code` varchar(191) NOT NULL,
+  `code` varchar(191) DEFAULT NULL,
   `name` varchar(191) NOT NULL,
+  `fingerprint` varchar(191) NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `scales_fingerprint_key` (`fingerprint`),
   UNIQUE KEY `scales_code_key` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -49,15 +51,15 @@ CREATE TABLE `skills` (
 
 CREATE TABLE `storage_objects` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `provider` enum('MINIO','EXTERNAL_S3') NOT NULL DEFAULT 'MINIO',
   `bucket` varchar(191) NOT NULL,
   `objectKey` varchar(191) NOT NULL,
   `contentType` varchar(191) DEFAULT NULL,
   `sizeBytes` int(11) DEFAULT NULL,
   `etag` varchar(191) DEFAULT NULL,
   `publicUrl` varchar(1024) NOT NULL,
-  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
-  `provider` enum('MINIO','EXTERNAL_S3') NOT NULL DEFAULT 'MINIO',
   `visibility` enum('PUBLIC','PRIVATE') NOT NULL DEFAULT 'PUBLIC',
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `storage_objects_provider_bucket_objectKey_key` (`provider`,`bucket`,`objectKey`),
   KEY `storage_objects_bucket_idx` (`bucket`)
@@ -79,6 +81,26 @@ CREATE TABLE `users` (
   UNIQUE KEY `users_telegramId_key` (`telegramId`),
   KEY `users_telegramUsername_idx` (`telegramUsername`),
   KEY `users_telegramId_idx` (`telegramId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- lms_tg_app.cases definition
+
+CREATE TABLE `cases` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(191) NOT NULL,
+  `situation` varchar(191) NOT NULL,
+  `sellerLegend` varchar(191) NOT NULL,
+  `buyerLegend` varchar(191) NOT NULL,
+  `sellerTask` varchar(191) NOT NULL,
+  `buyerTask` varchar(191) NOT NULL,
+  `recommendedSellerLevel` enum('LEVEL_3','LEVEL_4') NOT NULL DEFAULT 'LEVEL_3',
+  `createdByUserId` int(11) NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  `updatedAt` datetime(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `cases_createdByUserId_fkey` (`createdByUserId`),
+  CONSTRAINT `cases_createdByUserId_fkey` FOREIGN KEY (`createdByUserId`) REFERENCES `users` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -143,9 +165,9 @@ CREATE TABLE `modules` (
   `testVariant` enum('NONE','QUIZ') NOT NULL DEFAULT 'NONE',
   `unlockRule` enum('ALL','AFTER_PREV_MODULE','LEVEL_3','LEVEL_4') NOT NULL DEFAULT 'ALL',
   `orderIndex` int(11) NOT NULL DEFAULT 0,
+  `quizId` int(11) DEFAULT NULL,
   `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   `updatedAt` datetime(3) NOT NULL,
-  `quizId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `modules_quizId_key` (`quizId`),
   KEY `modules_courseId_idx` (`courseId`),
@@ -231,6 +253,7 @@ CREATE TABLE `scale_options` (
   `label` varchar(191) NOT NULL,
   `value` int(11) NOT NULL,
   `ord` int(11) NOT NULL DEFAULT 0,
+  `countsTowardsScore` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   UNIQUE KEY `scale_options_scaleId_ord_key` (`scaleId`,`ord`),
   CONSTRAINT `scale_options_scaleId_fkey` FOREIGN KEY (`scaleId`) REFERENCES `scales` (`id`) ON UPDATE CASCADE
@@ -242,11 +265,10 @@ CREATE TABLE `scale_options` (
 CREATE TABLE `scenarios` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(191) NOT NULL,
-  `practiceType` enum('WITH_CASE','WITHOUT_CASE','MINI') NOT NULL,
-  `updatedAt` datetime(3) NOT NULL,
-  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
-  `createdByUserId` int(11) NOT NULL,
   `version` int(11) NOT NULL DEFAULT 1,
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  `updatedAt` datetime(3) NOT NULL,
+  `createdByUserId` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `scenarios_createdByUserId_fkey` (`createdByUserId`),
   CONSTRAINT `scenarios_createdByUserId_fkey` FOREIGN KEY (`createdByUserId`) REFERENCES `users` (`id`) ON UPDATE CASCADE
@@ -259,8 +281,8 @@ CREATE TABLE `user_course_progress` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `userId` int(11) NOT NULL,
   `courseId` int(11) NOT NULL,
-  `progressPercent` int(11) NOT NULL DEFAULT 0,
   `completedModules` int(11) NOT NULL DEFAULT 0,
+  `progressPercent` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_course_progress_userId_courseId_key` (`userId`,`courseId`),
   KEY `user_course_progress_courseId_idx` (`courseId`),
@@ -323,26 +345,19 @@ CREATE TABLE `zoom_credentials` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- lms_tg_app.cases definition
+-- lms_tg_app.case_scenarios definition
 
-CREATE TABLE `cases` (
+CREATE TABLE `case_scenarios` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `title` varchar(191) NOT NULL,
-  `situation` varchar(191) NOT NULL,
-  `sellerLegend` varchar(191) NOT NULL,
-  `buyerLegend` varchar(191) NOT NULL,
-  `sellerTask` varchar(191) NOT NULL,
-  `buyerTask` varchar(191) NOT NULL,
-  `recommendedSellerLevel` enum('LEVEL_3','LEVEL_4') NOT NULL DEFAULT 'LEVEL_3',
+  `caseId` int(11) NOT NULL,
   `scenarioId` int(11) NOT NULL,
-  `createdByUserId` int(11) NOT NULL,
   `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
-  `updatedAt` datetime(3) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `cases_scenarioId_fkey` (`scenarioId`),
-  KEY `cases_createdByUserId_fkey` (`createdByUserId`),
-  CONSTRAINT `cases_createdByUserId_fkey` FOREIGN KEY (`createdByUserId`) REFERENCES `users` (`id`) ON UPDATE CASCADE,
-  CONSTRAINT `cases_scenarioId_fkey` FOREIGN KEY (`scenarioId`) REFERENCES `scenarios` (`id`) ON UPDATE CASCADE
+  UNIQUE KEY `case_scenarios_caseId_scenarioId_key` (`caseId`,`scenarioId`),
+  KEY `case_scenarios_caseId_idx` (`caseId`),
+  KEY `case_scenarios_scenarioId_idx` (`scenarioId`),
+  CONSTRAINT `case_scenarios_caseId_fkey` FOREIGN KEY (`caseId`) REFERENCES `cases` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `case_scenarios_scenarioId_fkey` FOREIGN KEY (`scenarioId`) REFERENCES `scenarios` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -369,6 +384,7 @@ CREATE TABLE `practices` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(191) NOT NULL,
   `scenarioId` int(11) NOT NULL,
+  `scenarioVersion` int(11) NOT NULL DEFAULT 1,
   `caseId` int(11) DEFAULT NULL,
   `practiceType` enum('WITH_CASE','WITHOUT_CASE','MINI') NOT NULL,
   `createdByUserId` int(11) NOT NULL,
@@ -377,17 +393,16 @@ CREATE TABLE `practices` (
   `status` enum('SCHEDULED','IN_PROGRESS','COMPLETED','CANCELED') NOT NULL DEFAULT 'SCHEDULED',
   `zoomLink` varchar(191) NOT NULL,
   `autoCancelAt` datetime(3) NOT NULL,
+  `evaluationState` enum('NONE','OPEN','FINAL') NOT NULL DEFAULT 'NONE',
+  `evaluationFinalizedAt` datetime(3) DEFAULT NULL,
+  `finishedAt` datetime(3) DEFAULT NULL,
   `sellerUserId` int(11) DEFAULT NULL,
   `buyerUserId` int(11) DEFAULT NULL,
   `moderatorUserId` int(11) DEFAULT NULL,
   `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   `updatedAt` datetime(3) NOT NULL,
-  `scenarioVersion` int(11) NOT NULL DEFAULT 1,
-  `recordingExpiresAt` datetime(3) DEFAULT NULL,
   `recordingObjectId` int(11) DEFAULT NULL,
-  `evaluationFinalizedAt` datetime(3) DEFAULT NULL,
-  `evaluationState` enum('NONE','OPEN','FINAL') NOT NULL DEFAULT 'NONE',
-  `finishedAt` datetime(3) DEFAULT NULL,
+  `recordingExpiresAt` datetime(3) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `practices_autoCancelAt_idx` (`autoCancelAt`),
   KEY `practices_scenarioId_caseId_idx` (`scenarioId`,`caseId`),
@@ -476,10 +491,10 @@ CREATE TABLE `user_skill_events` (
   `skillId` int(11) NOT NULL,
   `practiceId` int(11) NOT NULL,
   `result` enum('POSITIVE','NEGATIVE','NEUTRAL') NOT NULL,
-  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+  `posAnswers` int(11) NOT NULL DEFAULT 0,
   `negAnswers` int(11) NOT NULL DEFAULT 0,
   `neuAnswers` int(11) NOT NULL DEFAULT 0,
-  `posAnswers` int(11) NOT NULL DEFAULT 0,
+  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_skill_events_userId_skillId_practiceId_key` (`userId`,`skillId`,`practiceId`),
   KEY `user_skill_events_skillId_idx` (`skillId`),
@@ -580,25 +595,6 @@ CREATE TABLE `practice_observers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- lms_tg_app.practice_results definition
-
-CREATE TABLE `practice_results` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `practiceId` int(11) NOT NULL,
-  `userId` int(11) NOT NULL,
-  `role` varchar(191) NOT NULL,
-  `score` int(11) NOT NULL,
-  `isGood` tinyint(1) NOT NULL,
-  `createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `practice_results_practiceId_userId_key` (`practiceId`,`userId`),
-  KEY `practice_results_userId_idx` (`userId`),
-  KEY `practice_results_practiceId_idx` (`practiceId`),
-  CONSTRAINT `practice_results_practiceId_fkey` FOREIGN KEY (`practiceId`) REFERENCES `practices` (`id`) ON UPDATE CASCADE,
-  CONSTRAINT `practice_results_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 -- lms_tg_app.practice_skills definition
 
 CREATE TABLE `practice_skills` (
@@ -631,20 +627,17 @@ CREATE TABLE `practice_zoom` (
 CREATE TABLE `scenario_form_blocks` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `formId` int(11) NOT NULL,
-  `type` enum('TEXT','QA','SCALE') NOT NULL,
+  `type` enum('TEXT','QA','SCALE_SKILL_SINGLE','SCALE_SKILL_MULTI') NOT NULL,
   `title` varchar(191) NOT NULL,
   `helpText` varchar(191) DEFAULT NULL,
   `required` tinyint(1) NOT NULL DEFAULT 1,
   `position` int(11) NOT NULL,
-  `skillId` int(11) DEFAULT NULL,
   `scaleId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `scenario_form_blocks_formId_position_idx` (`formId`,`position`),
-  KEY `scenario_form_blocks_skillId_idx` (`skillId`),
-  KEY `scenario_form_blocks_scaleId_fkey` (`scaleId`),
+  KEY `scenario_form_blocks_scaleId_idx` (`scaleId`),
   CONSTRAINT `scenario_form_blocks_formId_fkey` FOREIGN KEY (`formId`) REFERENCES `scenario_forms` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `scenario_form_blocks_scaleId_fkey` FOREIGN KEY (`scaleId`) REFERENCES `scales` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `scenario_form_blocks_skillId_fkey` FOREIGN KEY (`skillId`) REFERENCES `skills` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `scenario_form_blocks_scaleId_fkey` FOREIGN KEY (`scaleId`) REFERENCES `scales` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -673,13 +666,16 @@ CREATE TABLE `evaluation_answers` (
   `scaleItemId` int(11) DEFAULT NULL,
   `selectedOptionId` int(11) DEFAULT NULL,
   `textAnswer` varchar(191) DEFAULT NULL,
+  `targetSkillId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `evaluation_answers_submissionId_blockId_scaleItemId_key` (`submissionId`,`blockId`,`scaleItemId`),
+  KEY `evaluation_answers_targetSkillId_idx` (`targetSkillId`),
   KEY `evaluation_answers_blockId_fkey` (`blockId`),
   KEY `evaluation_answers_scaleItemId_fkey` (`scaleItemId`),
   KEY `evaluation_answers_selectedOptionId_fkey` (`selectedOptionId`),
   CONSTRAINT `evaluation_answers_blockId_fkey` FOREIGN KEY (`blockId`) REFERENCES `scenario_form_blocks` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `evaluation_answers_scaleItemId_fkey` FOREIGN KEY (`scaleItemId`) REFERENCES `scenario_form_scale_items` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `evaluation_answers_selectedOptionId_fkey` FOREIGN KEY (`selectedOptionId`) REFERENCES `scale_options` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `evaluation_answers_submissionId_fkey` FOREIGN KEY (`submissionId`) REFERENCES `evaluation_submissions` (`id`) ON UPDATE CASCADE
+  CONSTRAINT `evaluation_answers_submissionId_fkey` FOREIGN KEY (`submissionId`) REFERENCES `evaluation_submissions` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `evaluation_answers_targetSkillId_fkey` FOREIGN KEY (`targetSkillId`) REFERENCES `skills` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
